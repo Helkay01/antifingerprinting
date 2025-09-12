@@ -38,47 +38,40 @@
 
   // ------------------- Create a battery instance -------------------
   function createFakeBattery() {
-    const FakeBattery = function() {};
-    FakeBattery.prototype = Object.create(Object.getPrototypeOf(navigator.battery || {}));
-    FakeBattery.prototype.constructor = FakeBattery;
-
-    const instance = new FakeBattery();
-
     // Initial per-tab, per-origin values
     let batteryState = {
       charging: randomBetween(0, 1, seed) > 0.5,
       level: parseFloat(randomBetween(0.2, 0.9, seed + 1).toFixed(3)),
       chargingTime: 0,
-      dischargingTime: 0
+      dischargingTime: Infinity
     };
 
-    // ------------------- Event Handlers -------------------
-    const events = {};
-    ['chargingchange','levelchange','chargingtimechange','dischargingtimechange'].forEach(evt => {
-      events[evt] = null;
-      Object.defineProperty(instance, 'on' + evt, {
-        configurable: true,
-        enumerable: true,
-        get: () => events[evt],
-        set: fn => { events[evt] = typeof fn === 'function' ? fn : null; }
-      });
-    });
-
-    // ------------------- Event Listener spoof -------------------
-    const listenerMap = {};
-    instance.addEventListener = (evt, fn) => {
-      if (!listenerMap[evt]) listenerMap[evt] = new Set();
-      listenerMap[evt].add(fn);
-    };
-    instance.removeEventListener = (evt, fn) => {
-      listenerMap[evt]?.delete(fn);
-    };
-    instance.dispatchEvent = (evtObj) => {
-      const evt = evtObj.type;
-      listenerMap[evt]?.forEach(fn => fn.call(instance, evtObj));
-      const handler = events['on' + evt];
-      if (handler) handler.call(instance, evtObj);
-      return true;
+    // Create event target for event handling
+    const eventTarget = new EventTarget();
+    
+    const batteryObject = {
+      // Properties
+      charging: batteryState.charging,
+      level: batteryState.level,
+      chargingTime: batteryState.chargingTime,
+      dischargingTime: batteryState.dischargingTime,
+      
+      // Event handlers
+      onchargingchange: null,
+      onlevelchange: null,
+      onchargingtimechange: null,
+      ondischargingtimechange: null,
+      
+      // Event methods
+      addEventListener: (type, listener, options) => {
+        eventTarget.addEventListener(type, listener, options);
+      },
+      removeEventListener: (type, listener, options) => {
+        eventTarget.removeEventListener(type, listener, options);
+      },
+      dispatchEvent: (event) => {
+        return eventTarget.dispatchEvent(event);
+      }
     };
 
     // ------------------- Update battery properties -------------------
@@ -92,41 +85,49 @@
       // Gradual drift
       if (batteryState.charging) {
         batteryState.level = Math.min(1, batteryState.level + BATTERY_CHARGE_RATE * Math.random());
+        batteryState.chargingTime = Math.floor((1 - batteryState.level) * 3600);
+        batteryState.dischargingTime = Infinity;
       } else {
-        batteryState.level = Math.max(0, batteryState.level - BATTERY_DRAIN_RATE * Math.random());
+        batteryState.level = Math.max(0.01, batteryState.level - BATTERY_DRAIN_RATE * Math.random());
+        batteryState.chargingTime = 0;
+        batteryState.dischargingTime = Math.floor(batteryState.level * 3600);
       }
+      
       batteryState.level = parseFloat(batteryState.level.toFixed(3));
 
-      // Update times
-      batteryState.chargingTime = batteryState.charging ? Math.floor((1 - batteryState.level) * 3600) : 0;
-      batteryState.dischargingTime = batteryState.charging ? 0 : Math.floor(batteryState.level * 3600);
-
-      // Redefine properties
-      ['charging','chargingTime','dischargingTime','level'].forEach(p => redefine(instance, p, batteryState[p]));
+      // Update object properties
+      batteryObject.charging = batteryState.charging;
+      batteryObject.level = batteryState.level;
+      batteryObject.chargingTime = batteryState.chargingTime;
+      batteryObject.dischargingTime = batteryState.dischargingTime;
 
       // Fire events if changed
-      if (batteryState.level !== oldLevel) instance.dispatchEvent(new Event('levelchange'));
-      if (batteryState.charging !== oldCharging) instance.dispatchEvent(new Event('chargingchange'));
-      instance.dispatchEvent(new Event('chargingtimechange'));
-      instance.dispatchEvent(new Event('dischargingtimechange'));
+      if (batteryState.level !== oldLevel) {
+        batteryObject.dispatchEvent(new Event('levelchange'));
+        if (batteryObject.onlevelchange) batteryObject.onlevelchange(new Event('levelchange'));
+      }
+      
+      if (batteryState.charging !== oldCharging) {
+        batteryObject.dispatchEvent(new Event('chargingchange'));
+        if (batteryObject.onchargingchange) batteryObject.onchargingchange(new Event('chargingchange'));
+      }
+      
+      batteryObject.dispatchEvent(new Event('chargingtimechange'));
+      batteryObject.dispatchEvent(new Event('dischargingtimechange'));
+      
+      if (batteryObject.onchargingtimechange) batteryObject.onchargingtimechange(new Event('chargingtimechange'));
+      if (batteryObject.ondischargingtimechange) batteryObject.ondischargingtimechange(new Event('dischargingtimechange'));
     }
 
     setInterval(updateBattery, BATTERY_UPDATE_INTERVAL);
 
-    // ------------------- Enumeration & prototype spoof -------------------
-    const realKeys = [
-      'charging','chargingTime','dischargingTime','level',
-      'onchargingchange','onlevelchange','onchargingtimechange','ondischargingtimechange'
-    ];
-    Object.defineProperty(instance, Symbol.toStringTag, { value: 'BatteryManager' });
-
-    return new Proxy(instance, {
-      ownKeys() { return realKeys; },
-      getOwnPropertyDescriptor(target, prop) {
-        if (realKeys.includes(prop)) return { configurable: true, enumerable: true, writable: false, value: target[prop] };
-        return Object.getOwnPropertyDescriptor(target, prop);
-      }
+    // Set Symbol.toStringTag for proper object identification
+    Object.defineProperty(batteryObject, Symbol.toStringTag, {
+      value: 'BatteryManager',
+      configurable: true
     });
+
+    return batteryObject;
   }
 
   const fakeInstance = createFakeBattery();
@@ -134,6 +135,7 @@
   // ------------------- Patch navigator.getBattery -------------------
   if (ENABLE_SPOOF && navigator.getBattery) {
     const originalGetBattery = navigator.getBattery.bind(navigator);
+    
     Object.defineProperty(navigator, 'getBattery', {
       configurable: true,
       enumerable: true,
@@ -141,18 +143,25 @@
       value: () => Promise.resolve(fakeInstance)
     });
 
+    // Preserve original function toString behavior
     const originalFuncStr = originalGetBattery.toString();
-    Function.prototype.toString = new Proxy(Function.prototype.toString, {
-      apply(target, thisArg, args) {
-        if (thisArg === navigator.getBattery) return originalFuncStr;
-        return target.apply(thisArg, args);
+    const originalToString = Function.prototype.toString;
+    
+    Function.prototype.toString = function() {
+      if (this === navigator.getBattery) {
+        return originalFuncStr;
       }
-    });
+      return originalToString.call(this);
+    };
   }
 
-  // ------------------- Patch navigator.battery -------------------
-  if ('battery' in navigator) {
-    Object.defineProperty(navigator, 'battery', { configurable: true, enumerable: true, get: () => fakeInstance });
+  // For direct property access (some browsers)
+  if (ENABLE_SPOOF) {
+    Object.defineProperty(navigator, 'battery', {
+      configurable: true,
+      enumerable: true,
+      get: () => fakeInstance
+    });
   }
 
 })();
