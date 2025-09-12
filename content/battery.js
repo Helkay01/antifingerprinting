@@ -41,7 +41,7 @@
     // Initial per-tab, per-origin values
     let batteryState = {
       charging: randomBetween(0, 1, seed) > 0.5,
-      level: parseFloat(randomBetween(0.2, 0.9, seed + 1).toFixed(3)),
+      level: parseFloat(randomBetween(0.2, 0.9, seed + 1).toFixed(2)), // 2 decimal places
       chargingTime: 0,
       dischargingTime: Infinity
     };
@@ -93,7 +93,8 @@
         batteryState.dischargingTime = Math.floor(batteryState.level * 3600);
       }
       
-      batteryState.level = parseFloat(batteryState.level.toFixed(3));
+      // Format to 2 decimal places and ensure it's a number
+      batteryState.level = parseFloat(batteryState.level.toFixed(2));
 
       // Update object properties
       batteryObject.charging = batteryState.charging;
