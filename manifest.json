@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "Fingerprint Protection",
+  "version": "1.0",
+  "description": "Spoof browser fingerprinting vectors",
+  "permissions": [
+    "scripting"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": [
+        "content/core.js",
+        "content/navigator.js",
+        "content/webgl.js",
+        "content/canvas.js",
+        "content/permission.js",
+        "content/webrtc.js",
+        "content/media-devices.js",
+        "content/stealth.js"
+      ],
+      "run_at": "document_start"
+    }
+  ]
+}
