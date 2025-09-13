@@ -42,7 +42,7 @@
     let batteryState = {
       charging: randomBetween(0, 1, seed) > 0.5,
       level: parseFloat(randomBetween(0.2, 0.9, seed + 1).toFixed(2)), // 2 decimal places
-      chargingTime: 0,
+      chargingTime: Infinity,
       dischargingTime: Infinity
     };
 
