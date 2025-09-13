@@ -2,22 +2,37 @@
 (function() {
   'use strict';
 
-  // --- CONFIGURATION (Tunable) ---
-  const BASE_JITTER_RANGE = 0.75;  // max ± jitter in ms
-  const LOW_END_THRESHOLD = 4;     // cores: <= means low-end device
-  const MIN_ROTATION_INTERVAL = 10000; // ms: min rotation interval (~10s)
-  const MAX_ROTATION_INTERVAL = 25000; // ms: max rotation interval (~25s)
-  const DRIFT_BASE = 0.015;        // base drift rate in ms/s
+ // --- CONFIGURATION (Tunable) ---
 
-  // --- STATE ---
-  let deviceCores = navigator.hardwareConcurrency || 8;
-  let jitterRange = BASE_JITTER_RANGE;
-  let driftRate = DRIFT_BASE;
+// Maximum ± jitter added to timing (in milliseconds)
+const BASE_JITTER_RANGE = 0.75;
 
-  if (deviceCores <= LOW_END_THRESHOLD) {
-    jitterRange *= 1.8;
-    driftRate *= 2.5;
-  }
+// Base drift rate (in ms per second of elapsed time)
+const DRIFT_BASE = 0.015;
+
+// Rotation interval controls how often the base noise/drift pattern resets
+const MIN_ROTATION_INTERVAL = 10000; // ~10 seconds
+const MAX_ROTATION_INTERVAL = 25000; // ~25 seconds
+
+// Device classification threshold (≤ = low-end)
+const LOW_END_THRESHOLD = 4;
+
+// --- Manual override for testing (set to true to force low-end mode) ---
+const FORCE_LOW_END = false;
+
+// --- Runtime state ---
+let deviceCores = navigator.hardwareConcurrency || 8;
+
+// If device is low-end (or override is on), increase jitter/drift
+let jitterRange = BASE_JITTER_RANGE;
+let driftRate = DRIFT_BASE;
+
+if (deviceCores <= LOW_END_THRESHOLD || FORCE_LOW_END) {
+  jitterRange *= 1.8;   // Increase jitter by 80%
+  driftRate *= 2.5;     // Increase drift by 150%
+}
+
+
 
   // Generate a random integer seed for noise pattern per instance
   const noiseSeed = Math.floor(Math.random() * 1e9);
