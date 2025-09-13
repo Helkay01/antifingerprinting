@@ -15,9 +15,13 @@
         "content/webgl.js",
         "content/canvas.js",
         "content/permission.js",
-        "content/webrtc.js",
         "content/media-devices.js",
-        "content/stealth.js"
+        "content/audio.js",
+        "content/battery.js",
+        "content/performance.js",
+        "content/video.js",
+        "content/webgpu.js"
+
       ],
       "run_at": "document_start"
     }
