@@ -3,7 +3,7 @@
 
     // ==================== ENTERPRISE CONFIGURATION ====================
     const CONFIG = {
-        SESSION_TTL_MINUTES: 30,
+        SESSION_TTL_MINUTES: 3,
         ROTATION_INTERVAL_MINUTES: 120,
         JITTER_PERCENTAGE: 0.1,
         DEBUG: false
@@ -12,7 +12,7 @@
     // ==================== USER AGENT DATA CONFIGURATION ====================
     const USER_AGENT_DATA = {
         brands: [
-            { brand: "Not/A)Brand", version: "99" },
+            { brand: "Not-A.Brand", version: "99" },
             { brand: "Google Chrome", version: "119" },
             { brand: "Chromium", version: "119" }
         ],
@@ -37,8 +37,8 @@
             productSub: "20030107",
             appName: "Netscape",
             appCodeName: "Mozilla",
-            language: "en-US",
-            languages: ["en-US", "en"],
+            language: "en-NG",
+            languages: ["en-NG", "en"],
             hardwareConcurrency: 8,
             deviceMemory: 8,
             maxTouchPoints: 10,
