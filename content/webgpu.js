@@ -1,166 +1,190 @@
+const webgpuScript = document.createElement('script');
+webgpuScript.textContent = `
+
 (() => {
   'use strict';
 
-  // ------------------- CONFIG -------------------
-  const BLOCK_WEBGPU = true;        // Block WebGPU completely
-  const FAKE_UNSUPPORTED = true;    // Simulate real "unsupported" behavior
-  const LOGGING = false;            // Debug logging
-  // ----------------------------------------------
-
-  const debug = (...args) => { if (LOGGING) console.log('[WebGPU Stealth]', ...args); };
-
-  // ------------------- ERRORS -------------------
-  class NotSupportedError extends Error {
-    constructor(msg = 'WebGPU is not supported on this system.') {
-      super(msg);
-      this.name = 'NotSupportedError';
-    }
-  }
-
-  // ------------------- FAKE GPU OBJECTS -------------------
-  const createFakeGPU = () => {
-    const fakeAdapterProto = {};
-    const fakeAdapter = Object.create(fakeAdapterProto, {
-      requestDevice: {
-        value: async () => { debug('requestDevice called'); throw new NotSupportedError(); },
-        writable: false,
-        configurable: true,
-        enumerable: true
-      },
-      name: { value: 'Unavailable GPU', configurable: true, enumerable: true },
-      features: { value: new Set(), configurable: true, enumerable: true },
-      limits: { value: {}, configurable: true, enumerable: true },
-      toString: { value: () => '[object GPUAdapter]', configurable: true, enumerable: false }
-    });
-
-    const fakeGPUProto = {};
-    const fakeGPU = Object.create(fakeGPUProto, {
-      requestAdapter: {
-        value: async () => { debug('requestAdapter called'); return FAKE_UNSUPPORTED ? null : fakeAdapter; },
-        writable: false,
-        configurable: true,
-        enumerable: true
-      },
-      toString: { value: () => '[object GPU]', configurable: true, enumerable: false }
-    });
-
-    // Seal prototypes
-    Object.seal(fakeAdapterProto);
-    Object.seal(fakeAdapter);
-    Object.seal(fakeGPUProto);
-    Object.seal(fakeGPU);
-
-    return { fakeGPU, fakeAdapter, fakeGPUProto, fakeAdapterProto };
+  // ------------------- FAKE DATA -------------------
+  const adapterLimits = {
+    maxTextureDimension1D: 16384,
+    maxTextureDimension2D: 16384,
+    maxTextureDimension3D: 2048,
+    maxTextureArrayLayers: 2048,
+    maxBindGroups: 8,
+    maxBindGroupsPlusVertexBuffers: 24,
+    maxBindingsPerBindGroup: 65535,
+    maxDynamicUniformBuffersPerPipelineLayout: 8,
+    maxDynamicStorageBuffersPerPipelineLayout: 4,
+    maxSampledTexturesPerShaderStage: 64,
+    maxSamplersPerShaderStage: 64,
+    maxStorageBuffersPerShaderStage: 64,
+    maxStorageTexturesPerShaderStage: 64,
+    maxUniformBuffersPerShaderStage: 64,
+    maxUniformBufferBindingSize: 65536,
+    maxStorageBufferBindingSize: 1073741824,
+    minUniformBufferOffsetAlignment: 256,
+    minStorageBufferOffsetAlignment: 32,
+    maxVertexBuffers: 16,
+    maxBufferSize: 1073741824,
+    maxVertexAttributes: 32,
+    maxVertexBufferArrayStride: 2048,
+    maxInterStageShaderVariables: 16,
+    maxColorAttachments: 8,
+    maxColorAttachmentBytesPerSample: 32,
+    maxComputeWorkgroupStorageSize: 32768,
+    maxComputeInvocationsPerWorkgroup: 768,
+    maxComputeWorkgroupSizeX: 1024,
+    maxComputeWorkgroupSizeY: 1024,
+    maxComputeWorkgroupSizeZ: 64,
+    maxComputeWorkgroupsPerDimension: 65535,
+    subgroupMaxSize: 128
   };
 
-  // ------------------- STEALTH PROPERTY DEFINITION -------------------
+  const adapterFeatures = new Set([
+    'core-features-and-limits',
+    'depth-clip-control',
+    'depth32float-stencil8',
+    'texture-compression-bc',
+    'texture-compression-bc-sliced-3d',
+    'timestamp-query',
+    'indirect-first-instance',
+    'shader-f16',
+    'rg11b10ufloat-renderable',
+    'bgra8unorm-storage',
+    'float32-filterable',
+    'pointer-composite-access',
+    'readonly-and-readwrite-storage-textures'
+  ]);
+
+  // ------------------- FAKE GPU DEVICE -------------------
+  const createFakeDevice = () => {
+    const queueProto = {};
+    const queue = Object.create(queueProto, {
+      submit: { value: () => {}, writable: false },
+      writeBuffer: { value: () => {}, writable: false },
+      writeTexture: { value: () => {}, writable: false }
+    });
+
+    const deviceProto = {};
+    const device = Object.create(deviceProto, {
+      queue: { value: queue },
+      createShaderModule: { value: () => ({}) },
+      createBuffer: { value: () => ({}) },
+      createTexture: { value: () => ({}) },
+      createSampler: { value: () => ({}) },
+      createBindGroup: { value: () => ({}) },
+      createBindGroupLayout: { value: () => ({}) },
+      createPipelineLayout: { value: () => ({}) },
+      createComputePipeline: { value: () => ({}) },
+      createRenderPipeline: { value: () => ({}) },
+      destroy: { value: () => {} },
+      pushErrorScope: { value: async () => {} },
+      popErrorScope: { value: async () => {} },
+      toString: { value: () => '[object GPUDevice]' }
+    });
+    Object.freeze(device);
+    Object.freeze(queue);
+    return device;
+  };
+
+  // ------------------- FAKE GPU ADAPTER -------------------
+  const fakeAdapterProto = {};
+  const fakeAdapter = Object.create(fakeAdapterProto, {
+    name: { value: 'Android High-End GPU' },
+    features: { value: adapterFeatures },
+    limits: { value: adapterLimits },
+    isFallbackAdapter: { value: false },
+    requestDevice: { value: async () => createFakeDevice(), writable: false },
+    toString: { value: () => '[object GPUAdapter]' }
+  });
+  Object.freeze(fakeAdapter);
+
+  // ------------------- FAKE GPU -------------------
+  const fakeGPUProto = {};
+  const fakeGPU = Object.create(fakeGPUProto, {
+    requestAdapter: { value: async () => fakeAdapter, writable: false },
+    getPreferredCanvasFormat: { value: () => 'bgra8unorm', writable: false },
+    toString: { value: () => '[object GPU]' }
+  });
+  Object.freeze(fakeGPU);
+
+  // ------------------- STEALTH DEFINITIONS -------------------
   const stealthDefine = (obj, prop, value) => {
     Object.defineProperty(obj, prop, {
       configurable: true,
-      enumerable: true,
-      get() { return value; },
-      set() { debug(`Attempt to overwrite ${prop} ignored`); },
+      enumerable: false, // Set enumerable to false to hide property from enumerations
+      get: () => value,
+      set: () => {}
     });
   };
+  stealthDefine(navigator, 'gpu', fakeGPU);
+  stealthDefine(Navigator.prototype, 'gpu', fakeGPU);
 
-  // ------------------- ENUMERATION SPOOF -------------------
-  const patchEnumeration = (target, prop) => {
+  // ------------------- PATCH ENUMERATION -------------------
+  const patchEnumeration = (obj, prop) => {
     const originalKeys = Object.keys;
     const originalNames = Object.getOwnPropertyNames;
     const originalReflectKeys = Reflect.ownKeys;
-    const originalHas = Object.prototype.hasOwnProperty;
 
-    Object.keys = function(obj) {
-      if (obj === target) return [...originalKeys(obj).filter(k => k !== prop), prop];
-      return originalKeys(obj);
+    // Avoid adding the 'gpu' property during enumeration
+    Object.keys = (target) => {
+      if (target === obj) {
+        return [...originalKeys(target)].filter(key => key !== prop);
+      }
+      return originalKeys(target);
     };
 
-    Object.getOwnPropertyNames = function(obj) {
-      if (obj === target) return [...originalNames(obj).filter(k => k !== prop), prop];
-      return originalNames(obj);
+    Object.getOwnPropertyNames = (target) => {
+      if (target === obj) {
+        return [...originalNames(target)].filter(name => name !== prop);
+      }
+      return originalNames(target);
     };
 
-    Reflect.ownKeys = function(obj) {
-      if (obj === target) return [...originalReflectKeys(obj).filter(k => k !== prop), prop];
-      return originalReflectKeys(obj);
+    Reflect.ownKeys = (target) => {
+      if (target === obj) {
+        return [...originalReflectKeys(target)].filter(key => key !== prop);
+      }
+      return originalReflectKeys(target);
     };
-
-    Object.prototype.hasOwnProperty = function(key) {
-      if (this === target && key === prop) return true;
-      return originalHas.call(this, key);
-    };
-
-    debug(`Enumeration patched for ${prop}`);
   };
+  patchEnumeration(navigator, 'gpu');
+  patchEnumeration(Navigator.prototype, 'gpu');
 
   // ------------------- FUNCTION.TOSTRING HARDENING -------------------
   const patchFunctionToString = (target, name) => {
-    const nativeToString = Function.prototype.toString;
-    Function.prototype.toString = new Proxy(nativeToString, {
-      apply(targetFn, thisArg, args) {
-        if (!thisArg) return nativeToString.apply(thisArg, args);
-        if (thisArg === target) return `function ${name}() { [native code] }`;
-        if (target.__stealthFunctions && target.__stealthFunctions.has(thisArg)) {
-          return `function ${thisArg.__stealthName}() { [native code] }`;
-        }
-        return nativeToString.apply(thisArg, args);
+    const origToString = Function.prototype.toString;
+
+    Function.prototype.toString = new Proxy(origToString, {
+      apply(fn, thisArg, args) {
+        if (thisArg === target) return \`function \${name}() { [native code] }\`;
+        return origToString.apply(fn, [thisArg, ...args]);
       }
     });
   };
+  patchFunctionToString(fakeGPU, 'GPU');
+  patchFunctionToString(fakeAdapter, 'GPUAdapter');
 
-  // ------------------- DESCRIPTOR HARDENING -------------------
-  const patchDescriptors = (target, prop, value) => {
-    const originalGetDesc = Object.getOwnPropertyDescriptor;
-    Object.getOwnPropertyDescriptor = new Proxy(originalGetDesc, {
-      apply(targetFn, thisArg, args) {
-        const [obj, key] = args;
-        if ((obj === target || obj === target.constructor?.prototype) && key === prop) {
-          return { configurable: true, enumerable: true, get: () => value };
-        }
-        return originalGetDesc.apply(targetFn, args);
+  // ------------------- SILENT FALLBACK FOR UNDEFINED BEHAVIORS -------------------
+  const silentFallback = (func) => {
+    return (...args) => {
+      try {
+        return func(...args);
+      } catch (e) {
+        // Prevent any error exposure
+        return undefined;
       }
-    });
-  };
-
-  // ------------------- APPLY PATCHES -------------------
-  if (BLOCK_WEBGPU) {
-    const { fakeGPU, fakeAdapter, fakeGPUProto, fakeAdapterProto } = createFakeGPU();
-
-    // Attach fakeGPU to navigator
-    stealthDefine(navigator, 'gpu', fakeGPU);
-    stealthDefine(Navigator.prototype, 'gpu', fakeGPU);
-
-    // Patch enumeration
-    patchEnumeration(navigator, 'gpu');
-    patchEnumeration(Navigator.prototype, 'gpu');
-
-    // Prototype chain spoofing
-    Object.setPrototypeOf(fakeGPU, fakeGPUProto);
-    Object.setPrototypeOf(fakeAdapter, fakeAdapterProto);
-
-    // Patch function.toString
-    fakeGPU.__stealthFunctions = new WeakSet();
-    fakeGPU.requestAdapter.__stealthName = 'requestAdapter';
-    fakeGPU.__stealthFunctions.add(fakeGPU.requestAdapter);
-
-    fakeAdapter.requestDevice.__stealthName = 'requestDevice';
-    fakeGPU.__stealthFunctions.add(fakeAdapter.requestDevice);
-
-    patchFunctionToString(fakeGPU, 'GPU');
-
-    // Patch getOwnPropertyDescriptor
-    patchDescriptors(navigator, 'gpu', fakeGPU);
-    patchDescriptors(Navigator.prototype, 'gpu', fakeGPU);
-
-    // Freeze spoofed objects but appear unfrozen
-    Object.freeze(fakeGPU);
-    Object.freeze(fakeAdapter);
-    const origIsFrozen = Object.isFrozen;
-    Object.isFrozen = function(obj) {
-      if (obj === navigator.gpu || obj === Navigator.prototype.gpu) return false;
-      return origIsFrozen(obj);
     };
+  };
 
-    debug('navigator.gpu fully patched, prototype spoofed, and stealth-hardened ✅');
-  }
+  // Override potentially faulty methods
+  const fakeDevice = createFakeDevice();
+  fakeDevice.createBuffer = silentFallback(fakeDevice.createBuffer);
+  fakeDevice.createTexture = silentFallback(fakeDevice.createTexture);
+  fakeDevice.createShaderModule = silentFallback(fakeDevice.createShaderModule);
+
 })();
+`;
+
+document.documentElement.appendChild(webgpuScript);
+try { webgpuScript.remove(); } catch(e) {}

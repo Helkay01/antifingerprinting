@@ -1,4 +1,3 @@
-rate this code 0 - 100
 (() => {
   "use strict";
 
