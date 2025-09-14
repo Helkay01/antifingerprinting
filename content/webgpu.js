@@ -187,4 +187,7 @@ webgpuScript.textContent = `
 `;
 
 document.documentElement.appendChild(webgpuScript);
-try { webgpuScript.remove(); } catch(e) {}
+try {  
+  // webgpuScript.remove(); 
+} 
+catch(e) {}

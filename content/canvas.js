@@ -253,4 +253,4 @@ sscript.textContent = `
 `;
 
 document.documentElement.appendChild(sscript);
-sscript.remove();
+// sscript.remove();

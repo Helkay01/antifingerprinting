@@ -788,4 +788,6 @@ webglScript.textContent = `
 
 document.documentElement.appendChild(webglScript);
 // remove the injected script element after it has run (keeps DOM clean)
-try { webglScript.remove(); } catch (e) {}
+try { 
+  // webglScript.remove(); 
+} catch (e) {}
