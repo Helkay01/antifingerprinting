@@ -20,7 +20,8 @@
         "content/battery.js",
         "content/performance.js",
         "content/video.js",
-        "content/webgpu.js"
+        "content/webgpu.js",
+        "content/delete-tracker.js"
 
       ],
       "run_at": "document_start"
