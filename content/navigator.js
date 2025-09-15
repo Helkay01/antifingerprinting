@@ -62,6 +62,14 @@
                 model: parsedUA.model,
                 uaFullVersion: parsedUA.uaFullVersion
             };
+
+
+            let hdC = [4, 4, 4, 8];
+            let dm = [2, 4, 6, 8];
+            let mtp = [4, 5, 6, 8];
+
+            let ArrayRandom = Math.round(Math.random() * 3);
+
             const navigatorProfile = {
                 userAgent: parsedUA.appVersion,
                 appVersion: parsedUA.appVersion,
@@ -74,12 +82,12 @@
                 appCodeName: "Mozilla",
                 language: "en-NG",
                 languages: ["en-NG", "en"],
-                hardwareConcurrency: 8,
-                deviceMemory: 8,
-                maxTouchPoints: 10,
+                hardwareConcurrency: hdC[ArrayRandom],
+                deviceMemory: dm[ArrayRandom],
+                maxTouchPoints: mtp[ArrayRandom],
                 pdfViewerEnabled: true,
                 webdriver: false,
-                doNotTrack: null,
+                doNotTrack: "unavailable",
                 cookieEnabled: true,
                 onLine: true,
                 connection: {

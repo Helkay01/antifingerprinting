@@ -309,7 +309,7 @@ webglScript.textContent = `
     "Mali-T880 MP4",
     "Mali-G52 MC1",
     "Mali-G57 MC4",
-    "Mali-T860 MP4",
+    "Mali-T860 MP4"
     
   ];
   function genRenderer(vendor) {
