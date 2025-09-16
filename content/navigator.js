@@ -6,7 +6,7 @@
         SESSION_TTL_MINUTES: 3,
         ROTATION_INTERVAL_MINUTES: 120,
         JITTER_PERCENTAGE: 0.1,
-        DEBUG: false
+        DEBUG: true // Set to true for debugging
     };
 
     // ==================== GLOBAL STATE (needed by many functions) ====================
@@ -296,11 +296,27 @@
 
     const spoofNavigator = () => {
         const fingerprint = getOriginFingerprint();
-        const navigatorProto = objectGetPrototypeOf(navigator);
-        stealthObject(navigatorProto, fingerprint);
+        
+        // Directly override navigator properties
+        Object.keys(fingerprint).forEach(key => {
+            if (key !== 'connection' && key !== 'sessionId' && key !== 'timestamp') {
+                try {
+                    stealthDefine(navigator, key, fingerprint[key]);
+                } catch (e) {
+                    if (CONFIG.DEBUG) console.warn('[Stealth] Failed to spoof navigator property:', key, e);
+                }
+            }
+        });
+        
+        // Handle connection separately
         if (fingerprint.connection && navigator.connection) {
-            const connectionProto = objectGetPrototypeOf(navigator.connection);
-            stealthObject(connectionProto, fingerprint.connection);
+            Object.keys(fingerprint.connection).forEach(key => {
+                try {
+                    stealthDefine(navigator.connection, key, fingerprint.connection[key]);
+                } catch (e) {
+                    if (CONFIG.DEBUG) console.warn('[Stealth] Failed to spoof connection property:', key, e);
+                }
+            });
         }
     };
 
@@ -390,16 +406,31 @@
             if (!frameWindow || !frameWindow.navigator) return;
             // Spoof navigator in the frame
             const fp = getOriginFingerprint();
-            const navProto = objectGetPrototypeOf(frameWindow.navigator);
-            stealthObject(navProto, fp);
+            Object.keys(fp).forEach(key => {
+                if (key !== 'connection' && key !== 'sessionId' && key !== 'timestamp') {
+                    try {
+                        stealthDefine(frameWindow.navigator, key, fp[key]);
+                    } catch (e) {
+                        if (CONFIG.DEBUG) console.warn('[Stealth] Failed to spoof frame navigator property:', key, e);
+                    }
+                }
+            });
+            
+            // Handle connection separately
+            if (fp.connection && frameWindow.navigator.connection) {
+                Object.keys(fp.connection).forEach(key => {
+                    try {
+                        stealthDefine(frameWindow.navigator.connection, key, fp.connection[key]);
+                    } catch (e) {
+                        if (CONFIG.DEBUG) console.warn('[Stealth] Failed to spoof frame connection property:', key, e);
+                    }
+                });
+            }
+            
             // Spoof userAgentData if present
             if ('userAgentData' in frameWindow.navigator) {
                 const fakeUA = makeFakeUserAgentData(USER_AGENT_DATA);
-                objectDefineProperty(frameWindow.navigator, 'userAgentData', {
-                    get: () => fakeUA,
-                    configurable: true,
-                    enumerable: false
-                });
+                stealthDefine(frameWindow.navigator, 'userAgentData', fakeUA);
                 const uaProto = objectGetPrototypeOf(frameWindow.navigator.userAgentData) || {};
                 stealthDefine(uaProto, 'brands', fakeUA.brands);
                 stealthDefine(uaProto, 'mobile', true);
@@ -407,8 +438,6 @@
                 stealthDefine(uaProto, 'getHighEntropyValues', fakeUA.getHighEntropyValues);
                 stealthDefine(uaProto, 'toJSON', fakeUA.toJSON);
             }
-            // Also spoof userAgent
-            stealthDefine(frameWindow.navigator, 'userAgent', NAVIGATOR_PROFILES.ANDROID_CHROME.userAgent);
         } catch (e) {
             if (CONFIG.DEBUG) console.warn('[Stealth] injectIntoFrameContext error', e);
         }
@@ -447,9 +476,58 @@
             try { Object.freeze(USER_AGENT_DATA); } catch (e) {}
             try { Object.freeze(NAVIGATOR_PROFILES.ANDROID_CHROME); } catch (e) {}
             try { Object.freeze(NAVIGATOR_PROFILES); } catch (e) {}
+            
+            return true;
         } catch (e) {
             if (CONFIG.DEBUG) console.error('[Stealth] initializeStealth failed', e);
+            return false;
         }
+    }
+
+    // ==================== SUCCESS CHECK AND LOGGING ====================
+    function checkStealthApplied() {
+        // Check if UA data was fetched successfully
+        if (!USER_AGENT_DATA || !NAVIGATOR_PROFILES.ANDROID_CHROME) {
+            console.error('[Stealth] Failed: User agent data not fetched');
+            return false;
+        }
+        
+        const fingerprint = getOriginFingerprint();
+        
+        // Check if navigator properties were spoofed
+        let navigatorSpoofed = true;
+        Object.keys(fingerprint).forEach(key => {
+            if (key !== 'connection' && key !== 'sessionId' && key !== 'timestamp') {
+                if (navigator[key] !== fingerprint[key]) {
+                    console.warn(`[Stealth] Navigator property ${key} not properly spoofed. Expected: ${fingerprint[key]}, Got: ${navigator[key]}`);
+                    navigatorSpoofed = false;
+                }
+            }
+        });
+        
+        // Check if connection properties were spoofed
+        let connectionSpoofed = true;
+        if (fingerprint.connection && navigator.connection) {
+            Object.keys(fingerprint.connection).forEach(key => {
+                if (navigator.connection[key] !== fingerprint.connection[key]) {
+                    console.warn(`[Stealth] Connection property ${key} not properly spoofed. Expected: ${fingerprint.connection[key]}, Got: ${navigator.connection[key]}`);
+                    connectionSpoofed = false;
+                }
+            });
+        }
+        
+        // Check if userAgentData was spoofed (if available in browser)
+        let userAgentDataSpoofed = true;
+        if ('userAgentData' in navigator) {
+            if (!navigator.userAgentData || 
+                !navigator.userAgentData.brands || 
+                !navigator.userAgentData.mobile) {
+                console.error('[Stealth] Failed: User agent data not properly spoofed');
+                userAgentDataSpoofed = false;
+            }
+        }
+        
+        return navigatorSpoofed && connectionSpoofed && userAgentDataSpoofed;
     }
 
     // ==================== MAIN ENTRYPOINT ====================
@@ -468,7 +546,18 @@
         originsData.set(origin, initialFp);
         sessionState.lastRotation = Date.now();
 
-        initializeStealth();
+        const stealthApplied = initializeStealth();
+        
+        // Check if stealth was successfully applied
+        if (stealthApplied && checkStealthApplied()) {
+            console.log('[Stealth] Success: User agent fetched and all stealth techniques applied');
+            console.log('[Stealth] User Agent:', navigator.userAgent);
+            console.log('[Stealth] Platform:', navigator.platform);
+            console.log('[Stealth] Hardware Concurrency:', navigator.hardwareConcurrency);
+        } else {
+            console.error('[Stealth] Failed: Stealth techniques not properly applied');
+        }
+        
         scheduleFingerprintRotation();
 
         // SPA/navigation hooks
