@@ -1,5 +1,4 @@
-const sscript = document.createElement('script');
-sscript.textContent = `
+
 // Upgraded injected script: Canvas anti-fingerprinting v4 (WebGL removed)
 (function () {
   'use strict';
@@ -250,7 +249,3 @@ sscript.textContent = `
   }
   try { Object.defineProperty(Function.prototype,'toString',{value:stealthToString,configurable:true,writable:true}); } catch(e){}
 })();
-`;
-
-document.documentElement.appendChild(sscript);
-// sscript.remove();

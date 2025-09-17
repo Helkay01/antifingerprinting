@@ -2,7 +2,7 @@
     "use strict";
 
     // --- Configuration ---
-    const ROTATION_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
+    const ROTATION_TTL_MS = 6 * 60 * 60 * 100; // 6 hours
     const STORAGE_KEY = 'android_bfp_config';
 
     // Android-specific plausible values

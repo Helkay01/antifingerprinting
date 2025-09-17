@@ -1,7 +1,5 @@
 // Inject this script early (document_start) for best effect.
 // It is intended for local testing/privacy research only.
-const webglScript = document.createElement('script');
-webglScript.textContent = `
 
 (function() {
   'use strict';
@@ -216,8 +214,20 @@ webglScript.textContent = `
   try {
     if (typeof SharedWorker !== 'undefined') {
       try {
-        // Use double-quoted string for the Blob body so inner single-quotes are safe
-        const swBlob = new Blob([\"self.addEventListener('connect', function(e) {\\n  var port = e.ports[0];\\n  port.onmessage = function(ev) {\\n    var d = ev.data;\\n    if (d && d.vendor && d.renderer) {\\n      // echo back to the sender port (best-effort)\\n      try { port.postMessage(d); } catch(e){}\\n    }\\n  };\\n});\\n\"], { type: 'text/javascript' });
+        // Using template literals so we can write code naturally without escape issues
+        const swBlob = new Blob([`
+          self.addEventListener('connect', function(e) {
+            var port = e.ports[0];
+            port.onmessage = function(ev) {
+              var d = ev.data;
+              if (d && d.vendor && d.renderer) {
+                // echo back to the sender port (best-effort)
+                try { port.postMessage(d); } catch(e){}
+              }
+            };
+          });
+        `], { type: 'text/javascript' });
+
         const swUrl = URL.createObjectURL(swBlob);
         const sw = new SharedWorker(swUrl);
         sharedWorkerPort = sw.port;
@@ -310,8 +320,8 @@ webglScript.textContent = `
     "Mali-G52 MC1",
     "Mali-G57 MC4",
     "Mali-T860 MP4"
-    
   ];
+  
   function genRenderer(vendor) {
     const tpl = pick(RENDERER_TEMPLATES);
     // create a 3-digit-ish model number consistent per-session
@@ -784,10 +794,4 @@ webglScript.textContent = `
     } catch(e){}
   } catch(e) {}
 
-})(); `;
-
-document.documentElement.appendChild(webglScript);
-// remove the injected script element after it has run (keeps DOM clean)
-try { 
-  // webglScript.remove(); 
-} catch (e) {}
+})();

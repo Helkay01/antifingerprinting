@@ -1,38 +1,35 @@
-
 (function() {
   'use strict';
 
- // --- CONFIGURATION (Tunable) ---
+  // --- CONFIGURATION (Tunable) ---
 
-// Maximum ± jitter added to timing (in milliseconds)
-const BASE_JITTER_RANGE = 0.75;
+  // Maximum ± jitter added to timing (in milliseconds)
+  const BASE_JITTER_RANGE = 0.75;
 
-// Base drift rate (in ms per second of elapsed time)
-const DRIFT_BASE = 0.015;
+  // Base drift rate (in ms per second of elapsed time)
+  const DRIFT_BASE = 0.015;
 
-// Rotation interval controls how often the base noise/drift pattern resets
-const MIN_ROTATION_INTERVAL = 10000; // ~10 seconds
-const MAX_ROTATION_INTERVAL = 25000; // ~25 seconds
+  // Rotation interval controls how often the base noise/drift pattern resets
+  const MIN_ROTATION_INTERVAL = 10000; // ~10 seconds
+  const MAX_ROTATION_INTERVAL = 25000; // ~25 seconds
 
-// Device classification threshold (≤ = low-end)
-const LOW_END_THRESHOLD = 4;
+  // Device classification threshold (≤ = low-end)
+  const LOW_END_THRESHOLD = 4;
 
-// --- Manual override for testing (set to true to force low-end mode) ---
-const FORCE_LOW_END = false;
+  // --- Manual override for testing (set to true to force low-end mode) ---
+  const FORCE_LOW_END = false;
 
-// --- Runtime state ---
-let deviceCores = navigator.hardwareConcurrency || 8;
+  // --- Runtime state ---
+  let deviceCores = navigator.hardwareConcurrency || 8;
 
-// If device is low-end (or override is on), increase jitter/drift
-let jitterRange = BASE_JITTER_RANGE;
-let driftRate = DRIFT_BASE;
+  // If device is low-end (or override is on), increase jitter/drift
+  let jitterRange = BASE_JITTER_RANGE;
+  let driftRate = DRIFT_BASE;
 
-if (deviceCores <= LOW_END_THRESHOLD || FORCE_LOW_END) {
-  jitterRange *= 1.8;   // Increase jitter by 80%
-  driftRate *= 2.5;     // Increase drift by 150%
-}
-
-
+  if (deviceCores <= LOW_END_THRESHOLD || FORCE_LOW_END) {
+    jitterRange *= 1.8;   // Increase jitter by 80%
+    driftRate *= 2.5;     // Increase drift by 150%
+  }
 
   // Generate a random integer seed for noise pattern per instance
   const noiseSeed = Math.floor(Math.random() * 1e9);
@@ -92,7 +89,7 @@ if (deviceCores <= LOW_END_THRESHOLD || FORCE_LOW_END) {
     dateNow: Date.now.bind(Date),
     requestAnimationFrame: window.requestAnimationFrame.bind(window),
     audioContext: window.AudioContext || window.webkitAudioContext,
-    getExtension: WebGLRenderingContext.prototype.getExtension,
+    getExtension: Object.getOwnPropertyDescriptor(WebGLRenderingContext.prototype, 'getExtension').value,
   };
 
   // Proxy a function to add noise, keep stealthy toString
@@ -208,31 +205,37 @@ if (deviceCores <= LOW_END_THRESHOLD || FORCE_LOW_END) {
   }
 
   // --- PATCH WebGL EXT_disjoint_timer_query ---
-  WebGLRenderingContext.prototype.getExtension = new Proxy(originals.getExtension, {
-    apply(target, thisArg, args) {
-      const extName = args[0];
-      const ext = Reflect.apply(target, thisArg, args);
-      if (ext && typeof ext === 'object' && extName && extName.includes('EXT_disjoint_timer_query')) {
-        if (typeof ext.getQueryObjectEXT === 'function') {
-          ext.getQueryObjectEXT = new Proxy(ext.getQueryObjectEXT, {
-            apply(origFn, extThis, fnArgs) {
-              const result = Reflect.apply(origFn, extThis, fnArgs);
-              if (fnArgs[1] === ext.QUERY_RESULT_EXT && typeof result === 'number') {
-                return result + getNoise(originals.performanceNow());
+  // Use Object.defineProperty to replace getExtension since it's read-only
+  Object.defineProperty(WebGLRenderingContext.prototype, 'getExtension', {
+    value: new Proxy(originals.getExtension, {
+      apply(target, thisArg, args) {
+        const extName = args[0];
+        const ext = Reflect.apply(target, thisArg, args);
+        if (ext && typeof ext === 'object' && extName && extName.includes('EXT_disjoint_timer_query')) {
+          if (typeof ext.getQueryObjectEXT === 'function') {
+            ext.getQueryObjectEXT = new Proxy(ext.getQueryObjectEXT, {
+              apply(origFn, extThis, fnArgs) {
+                const result = Reflect.apply(origFn, extThis, fnArgs);
+                if (fnArgs[1] === ext.QUERY_RESULT_EXT && typeof result === 'number') {
+                  return result + getNoise(originals.performanceNow());
+                }
+                return result;
               }
-              return result;
-            }
-          });
+            });
+          }
         }
+        return ext;
+      },
+      get(target, prop, receiver) {
+        if (prop === 'toString') {
+          return () => originals.getExtension.toString();
+        }
+        return Reflect.get(target, prop, receiver);
       }
-      return ext;
-    },
-    get(target, prop, receiver) {
-      if (prop === 'toString') {
-        return () => originals.getExtension.toString();
-      }
-      return Reflect.get(target, prop, receiver);
-    }
+    }),
+    writable: false,
+    configurable: true,
+    enumerable: false
   });
 
   // --- PATCH Function.prototype.toString comprehensively ---

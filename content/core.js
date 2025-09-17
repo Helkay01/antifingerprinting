@@ -11,8 +11,7 @@
 
 
 // Create, inject, run, then remove the script (keeps same outer pattern you had)
-const cscript = document.createElement('script');
-cscript.textContent = `
+
 // Stealth/fingerprint-mitigation script (production-hardened)
 // Inserted as a string into a <script> element and appended to the document.
 (function () {
@@ -637,6 +636,3 @@ cscript.textContent = `
   })();
 
 })();
-`;
-document.documentElement.appendChild(cscript);
-//cscript.remove();

@@ -1,6 +1,3 @@
-const mdScript = document.createElement('script');
-mdScript.textContent = `
-
 (function () {
   'use strict';
 
@@ -348,8 +345,10 @@ mdScript.textContent = `
     ex.name = String(name);
     try {
       Object.defineProperty(ex, 'toString', {
-        configurable: true, enumerable: false, writable: false,
-        value: function () { return \`\${this.name}: \${this.message}\`; }
+        configurable: true,
+        enumerable: false,
+        writable: false,
+        value: function () { return this.name + ': ' + this.message; }
       });
     } catch (e) { /* silent */ }
     return ex;
@@ -385,7 +384,7 @@ mdScript.textContent = `
 
   const deviceKindsOrder = () => {
     const UA = (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent : '';
-    const isChromeLike = /Chrome|Chromium|CriOS/.test(UA) && !/Edg\\//.test(UA);
+    const isChromeLike = /Chrome|Chromium|CriOS/.test(UA) && !/Edg\//.test(UA);
     const isFirefoxLike = /Firefox/.test(UA);
     const isSafariLike = /Safari/.test(UA) && !/Chrome/.test(UA);
     if (isChromeLike) return ['audioinput', 'audiooutput', 'videoinput'];
@@ -448,7 +447,7 @@ mdScript.textContent = `
   const makeNativeLikeString = (name) => {
     name = typeof name === 'string' ? name : '';
     if (name && !/^[A-Za-z_$][0-9A-Za-z_$]*$/.test(name)) {
-      name = name.replace(/[^\\w$]/g, '');
+      name = name.replace(/[^\w$]/g, '');
     }
     return 'function ' + (name || '') + '() { [native code] }';
   };
@@ -583,7 +582,7 @@ mdScript.textContent = `
 
               // ordering heuristics
               const UA = (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent : '';
-              const isChromeLike = /Chrome|Chromium|CriOS/.test(UA) && !/Edg\\//.test(UA);
+              const isChromeLike = /Chrome|Chromium|CriOS/.test(UA) && !/Edg\//.test(UA);
               const isFirefoxLike = /Firefox/.test(UA);
               if (isChromeLike) {
                 list.sort((a, b) => {
@@ -691,7 +690,3 @@ mdScript.textContent = `
 
   // End of IIFE
 })();
-`;
-
-document.documentElement.appendChild(mdScript);
-mdScript.remove();

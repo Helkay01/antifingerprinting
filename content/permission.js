@@ -11,8 +11,7 @@
 //   window._nativePermissionsQuery -> original native function
 //   window.setPermissionsMock(...) -> runtime toggles
 
-const perfScript = document.createElement('script');
-perfScript.textContent = `
+
 
 
 (function () {
@@ -337,8 +336,3 @@ perfScript.textContent = `
 
 })();
 
-
-`;
-
-document.documentElement.appendChild(perfScript);
-perfScript.remove();
